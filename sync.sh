@@ -1,54 +1,48 @@
 #!/system/bin/sh
 
+while [ "$(getprop sys.boot_completed)" != "1" ]; do
+    sleep 5
+done
+
+until pm path android >/dev/null 2>&1; do
+    sleep 3
+done
+
+sleep 30
+
 TARGET="/data/adb/tricky_store/target.txt"
-
-wait_boot() {
-    while [ "$(getprop sys.boot_completed)" != "1" ]; do
-        sleep 3
-    done
-    until pm path android >/dev/null 2>&1; do
-        sleep 2
-    done
-}
-
-get_pkgs() {
-    pm list packages -3 2>/dev/null | sed 's/^package://g' | sort -u
-}
+mkdir -p /data/adb/tricky_store
+touch "$TARGET"
 
 sync_now() {
-    [ -f "$TARGET" ] || : > "$TARGET"
-
-    SPECIAL_LINES=$(grep -E '^[^#].*[!?]$' "$TARGET" 2>/dev/null | sed '/^$/d')
-    CUR_PKGS=$(get_pkgs)
+    SPECIAL=$(grep -E '[?!]$' "$TARGET" 2>/dev/null)
 
     {
-        [ -n "$SPECIAL_LINES" ] && printf '%s\n' "$SPECIAL_LINES"
+        [ -n "$SPECIAL" ] && echo "$SPECIAL"
 
-        printf '%s\n' "$CUR_PKGS" | while IFS= read -r pkg; do
-            [ -n "$pkg" ] || continue
+        pm list packages -3 2>/dev/null |         sed 's/^package://g' |         sort -u | while read -r pkg; do
 
-            if ! printf '%s\n' "$SPECIAL_LINES" | grep -Fqx "${pkg}!" &&                    ! printf '%s\n' "$SPECIAL_LINES" | grep -Fqx "${pkg}?"; then
-                printf '%s\n' "$pkg"
+            if ! printf '%s\n' "$SPECIAL" | grep -Fqx "${pkg}!" &&                ! printf '%s\n' "$SPECIAL" | grep -Fqx "${pkg}?"; then
+                echo "$pkg"
             fi
         done
-    } | sed '/^$/d' | sort -u > "$TARGET.tmp" && mv "$TARGET.tmp" "$TARGET" && chmod 644 "$TARGET"
+    } | sed '/^$/d' | sort -u > "$TARGET.tmp"
+
+    mv "$TARGET.tmp" "$TARGET"
+    chmod 644 "$TARGET"
 }
 
-wait_boot
-sleep 10
-
 sync_now
-LAST_STATE=$(get_pkgs)
+
+LAST_PKGS=""
 
 while true; do
-    sleep 8
-    CURRENT_STATE=$(get_pkgs)
+    CUR_PKGS=$(pm list packages -3 2>/dev/null | sed 's/^package://g' | sort)
 
-    [ -n "$CURRENT_STATE" ] || continue
-
-    if [ "$CURRENT_STATE" != "$LAST_STATE" ]; then
-        sleep 2
+    if [ "$CUR_PKGS" != "$LAST_PKGS" ]; then
         sync_now
-        LAST_STATE=$(get_pkgs)
+        LAST_PKGS="$CUR_PKGS"
     fi
+
+    sleep 10
 done

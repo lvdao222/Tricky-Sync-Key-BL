@@ -15,5 +15,5 @@ set_perm "$MODPATH/sync.sh" 0 0 0755
 set_perm "$MODPATH/Hide_BootLoader.sh" 0 0 0755
 
 ui_print "- 核心环境检查完成"
-ui_print "- 开机后将自动执行包名同步与弱BL隐藏"
+ui_print "- 动态包名同步守护进程已就绪"
 ui_print "- Manager 中执行 Action 可触发在线替换 Keybox"
