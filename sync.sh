@@ -23,14 +23,14 @@ sync_now() {
 }
 
 sync_now
-LAST_STATE=$(ls /data/app | sort)
+LAST_STATE=$(stat -c %Y /data/app 2>/dev/null || echo 0)
 
 while true; do
     sleep 15
-    CURRENT_STATE=$(ls /data/app | sort)
+    CURRENT_STATE=$(stat -c %Y /data/app 2>/dev/null || echo 0)
     if [ "$CURRENT_STATE" != "$LAST_STATE" ]; then
         sleep 5
         sync_now
-        LAST_STATE=$(ls /data/app | sort)
+        LAST_STATE=$(stat -c %Y /data/app 2>/dev/null || echo 0)
     fi
 done
