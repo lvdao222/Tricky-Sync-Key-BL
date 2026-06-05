@@ -1,3 +1,3 @@
 #!/system/bin/sh
-
-sh key.sh
+MODDIR=${0%/*}
+sh "$MODDIR/key.sh"
