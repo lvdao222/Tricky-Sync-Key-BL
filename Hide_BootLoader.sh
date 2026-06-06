@@ -1,22 +1,5 @@
 #!/system/bin/sh
 
-bg_guard() {
-    while true; do
-        resetprop -n persist.sys.usb.config mtp 2>/dev/null
-        resetprop -n persist.sys.adb.engineermode 1 2>/dev/null
-        resetprop -n init.svc.adbd stopped 2>/dev/null
-        resetprop -n sys.usb.config mtp 2>/dev/null
-        resetprop -n sys.usb.state mtp 2>/dev/null
-        resetprop --delete persist.sys.adb.engineermode 2>/dev/null
-        resetprop --delete persist.sys.usb.config 2>/dev/null
-        sleep 00
-    done
-}
-bg_guard &
-
-while [ "$(getprop sys.boot_completed)" != "1" ]; do
-    sleep 2
-done
 
 RESETPROG=""
 for candidate in resetprop \
@@ -31,6 +14,23 @@ for candidate in resetprop \
     fi
 done
 [ -z "$RESETPROG" ] && RESETPROG="setprop"
+
+bg_guard() {
+    while true; do
+        
+        [ "$($RESETPROG persist.sys.usb.config 2>/dev/null)" != "mtp" ] && $RESETPROG -n persist.sys.usb.config mtp 2>/dev/null
+        [ "$($RESETPROG persist.sys.adb.engineermode 2>/dev/null)" != "0" ] && $RESETPROG -n persist.sys.adb.engineermode 0 2>/dev/null
+        [ "$($RESETPROG init.svc.adbd 2>/dev/null)" != "stopped" ] && $RESETPROG -n init.svc.adbd stopped 2>/dev/null
+        [ "$($RESETPROG sys.usb.config 2>/dev/null)" != "mtp" ] && $RESETPROG -n sys.usb.config mtp 2>/dev/null
+        [ "$($RESETPROG sys.usb.state 2>/dev/null)" != "mtp" ] && $RESETPROG -n sys.usb.state mtp 2>/dev/null
+        sleep 5
+    done
+}
+bg_guard &
+
+while [ "$(getprop sys.boot_completed)" != "1" ]; do
+    sleep 2
+done
 
 MAGISKBOOT=""
 for candidate in /data/adb/magisk/magiskboot /data/adb/ksu/bin/magiskboot; do
@@ -53,15 +53,22 @@ fi
 
 resetprop_if_diff() {
     local NAME=$1 EXPECTED=$2
-    [ "$($RESETPROG $NAME)" != "$EXPECTED" ] && $RESETPROG -n "$NAME" "$EXPECTED" 2>/dev/null
+    local CURRENT_VAL=$($RESETPROG "$NAME" 2>/dev/null)
+    if [ -n "$CURRENT_VAL" ] && [ "$CURRENT_VAL" != "$EXPECTED" ]; then
+        $RESETPROG -n "$NAME" "$EXPECTED" 2>/dev/null
+    fi
 }
 
 resetprop_if_match() {
     local NAME=$1 MATCH=$2 NEWVAL=$3
-    case "$($RESETPROG $NAME)" in
-        *"$MATCH"*) $RESETPROG -n "$NAME" "$NEWVAL" 2>/dev/null ;;
-    esac
+    local CURRENT_VAL=$($RESETPROG "$NAME" 2>/dev/null)
+    if [ -n "$CURRENT_VAL" ]; then
+        case "$CURRENT_VAL" in
+            *"$MATCH"*) $RESETPROG -n "$NAME" "$NEWVAL" 2>/dev/null ;;
+        esac
+    fi
 }
+
 
 resetprop_if_diff ro.boot.verifiedbootstate green
 resetprop_if_diff ro.boot.verifiedbootstate2 green
@@ -79,9 +86,10 @@ resetprop_if_diff ro.secureboot.lockstate locked
 resetprop_if_diff ro.boot.realmebootstate green
 resetprop_if_diff ro.boot.realme.lockstate 0
 resetprop_if_diff ro.boot.selinux enforcing
+resetprop_if_diff ro.boot.verifiedbootstate.orange green
 
-$RESETPROG -n "ro.boot.verifiedbootstate.orange" "green" 2>/dev/null
-$RESETPROG -n "ro.boot.vbmeta.digest" "" 2>/dev/null
+
+resetprop_if_diff ro.boot.vbmeta.digest "3fa66bd4532520541a69a7de7b8155895a4ecb8b7a7defbaaf72fc9d2f9c4dd3"
 
 resetprop_if_match ro.boot.mode recovery unknown
 resetprop_if_match ro.bootmode recovery unknown
@@ -100,16 +108,20 @@ resetprop_if_diff ro.secure 0
 resetprop_if_diff ro.adb.secure 0
 resetprop_if_diff sys.usb.adb.disabled 0
 
-$RESETPROG -n "init.svc.adbd" "stopped" 2>/dev/null
-$RESETPROG -n "persist.sys.usb.config" "mtp" 2>/dev/null
-$RESETPROG -n "sys.usb.config" "mtp" 2>/dev/null
-$RESETPROG -n "sys.usb.state" "mtp" 2>/dev/null
-$RESETPROG -n "persist.sys.adb.engineermode" "0" 2>/dev/null
-$RESETPROG --delete "persist.sys.adb.engineermode" 2>/dev/null
-$RESETPROG --delete "sys.usb.config" 2>/dev/null
-$RESETPROG --delete "sys.usb.state" 2>/dev/null
-$RESETPROG --delete "persist.log.tag.LSPosed" 2>/dev/null
-$RESETPROG --delete "persist.log.tag.LSPosed-Bridge" 2>/dev/null
+
+resetprop_if_diff init.svc.adbd stopped
+resetprop_if_diff persist.sys.usb.config mtp
+resetprop_if_diff sys.usb.config mtp
+resetprop_if_diff sys.usb.state mtp
+resetprop_if_diff persist.sys.adb.engineermode 0
+
+
+[ -n "$($RESETPROG persist.log.tag.LSPosed 2>/dev/null)" ] && $RESETPROG -n "persist.log.tag.LSPosed" "S" 2>/dev/null
+[ -n "$($RESETPROG persist.log.tag.LSPosed-Bridge 2>/dev/null)" ] && $RESETPROG -n "persist.log.tag.LSPosed-Bridge" "S" 2>/dev/null
+
+REAL_PATCH=$(getprop ro.build.version.security_patch)
+[ -z "$REAL_PATCH" ] && REAL_PATCH="2026-03-01"
+
 
 for leak in \
     ro.build.version.security_patch_vendor \
@@ -117,16 +129,23 @@ for leak in \
     ro.config.low_ram \
     ro.build.selinux \
     persist.magisk.hide \
-    persist.zygisk.changed \
-    ro.boot.vbmeta.digest; do
-    $RESETPROG --delete "$leak" 2>/dev/null || \
-    $RESETPROG -n "$leak" "" 2>/dev/null
+    persist.zygisk.changed; do
+    if [ -n "$($RESETPROG $leak 2>/dev/null)" ]; then
+        case "$leak" in
+            *security_patch*) $RESETPROG -n "$leak" "$REAL_PATCH" 2>/dev/null ;;
+            *low_ram*) $RESETPROG -n "$leak" "false" 2>/dev/null ;;
+            *selinux*) $RESETPROG -n "$leak" "enforcing" 2>/dev/null ;;
+            *magisk*|*zygisk*) $RESETPROG -n "$leak" "0" 2>/dev/null ;;
+        esac
+    fi
 done
 
-setprop persist.logd.size "" 2>/dev/null
-setprop persist.logd.size.crash "" 2>/dev/null
-setprop persist.logd.size.system "" 2>/dev/null
-setprop persist.logd.size.main "" 2>/dev/null
+
+for logd_prop in persist.logd.size persist.logd.size.crash persist.logd.size.system persist.logd.size.main; do
+    if [ -n "$(getprop $logd_prop 2>/dev/null)" ]; then
+        setprop "$logd_prop" "256K" 2>/dev/null
+    fi
+done
 
 if [ "$(toybox cat /sys/fs/selinux/enforce 2>/dev/null)" = "0" ]; then
     chmod 640 /sys/fs/selinux/enforce 2>/dev/null
