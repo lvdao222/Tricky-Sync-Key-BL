@@ -1,6 +1,6 @@
 id=TS_Sync_BL
 name=Tricky Sync Key BL
-version=3.3.0
-versionCode=330
+version=3.4.0
+versionCode=340
 author=Lvdao
 description=自动同步包名 执行自动替换密钥 以及隐藏弱BL
