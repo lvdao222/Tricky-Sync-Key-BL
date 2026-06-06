@@ -1,5 +1,6 @@
 # Tricky Sync Key BL
-一个针对 Tricky Store / TEESimulator 开发的辅助模块，集成自动同步 target.txt 包名、在线拉取替换 Keybox 证书，以及隐藏 Bootloader 状态（改 cmdline / 清理属性残留）。
+一个针对 Tricky Store / TEESimulator 开发的辅助模块，集成自动同步 target.txt 包名、在线拉取替换 Keybox 证书，
+隐藏 Bootloader 状态（可选）。
 ```text
 ├── Hide_BootLoader.sh   # 属性修改
 ├── action.sh            # 
@@ -10,6 +11,9 @@
 └── sync.sh              # 包名同步
 
 ```
+# 重要提醒
+从v3.4.0以后 会同时发布两个版本 区别为
+* 有无BL后缀 请按需选择
 ## 部署与运行
 ### 准备环境
  * 设备已刷入 Tricky Store 或 TEESimulator。
