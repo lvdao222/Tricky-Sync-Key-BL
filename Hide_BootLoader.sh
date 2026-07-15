@@ -42,12 +42,7 @@ if [ -n "$MAGISKBOOT" ]; then
     cp /proc/cmdline /data/local/tmp/cmdline.new 2>/dev/null
     sed -i \
         -e 's/androidboot.verifiedbootstate=orange/androidboot.verifiedbootstate=green/g' \
-        -e 's/androidboot.verifiedbootstate=yellow/androidboot.verifiedbootstate=green/g' \
-        -e 's/androidboot.verifiedbootstate=red/androidboot.verifiedbootstate=green/g' \
-        -e 's/androidboot.vbmeta.device_state=unlocked/androidboot.vbmeta.device_state=locked/g' \
-        -e 's/androidboot.vbmeta.digest=[^ ]*/androidboot.vbmeta.digest=3fa66bd4532520541a69a7de7b8155895a4ecb8b7a7defbaaf72fc9d2f9c4dd3/g' \
-        -e 's/androidboot.flash.locked=0/androidboot.flash.locked=1/g' \
-        /data/local/tmp/cmdline.new 2>/dev/null
+              /data/local/tmp/cmdline.new 2>/dev/null
     mount --bind /data/local/tmp/cmdline.new /proc/cmdline 2>/dev/null
 fi
 
@@ -69,7 +64,9 @@ resetprop_if_match() {
     fi
 }
 
-
+resetprop_if_diff ro.boot.vbmeta.device_state=locked
+resetprop_if_diff ro.boot.verifiedbootstate=green
+resetprop_if_diff ro.boot.flash.locked=1
 resetprop_if_diff ro.boot.verifiedbootstate green
 resetprop_if_diff ro.boot.verifiedbootstate2 green
 resetprop_if_diff ro.boot.vbmeta.device_state locked
